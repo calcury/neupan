@@ -6,9 +6,9 @@ import time
 from pathlib import Path
 
 # add project root to path (parent of script/)
-_project_root = str(Path(__file__).resolve().parent.parent)
-if _project_root not in sys.path:
-    sys.path.insert(0, _project_root)
+_project_root = Path(__file__).resolve().parent.parent
+if str(_project_root) not in sys.path:
+    sys.path.insert(0, str(_project_root))
 
 warnings.filterwarnings("ignore", category=UserWarning)
 os.environ["TORCH_CPP_LOG_LEVEL"] = "ERROR"
