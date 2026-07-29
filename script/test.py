@@ -84,11 +84,13 @@ def run_episode(env_file, planner, max_steps=1000):
     return success, nav_time, avg_speed, avg_inference
 
 
-def run_display(planner_file, model_path, env_yaml, seed, max_steps):
-    script_dir = Path(__file__).resolve().parent
-    env_file = str((script_dir / env_yaml).resolve())
-    planner_file = str((script_dir / planner_file).resolve())
-    model_path = str((_project_root / model_path).resolve())
+def run_display(env_file, planner_file, model_path, seed, max_steps):
+    if not os.path.isabs(env_file):
+        env_file = str(_project_root / env_file)
+    if not os.path.isabs(planner_file):
+        planner_file = str(_project_root / planner_file)
+    if not os.path.isabs(model_path):
+        model_path = str(_project_root / model_path)
 
     # use shuffle so obstacles vary, but override start/goal to stay in safe zone
     temp_env = shuffle_env_file(env_file, seed=seed)
@@ -148,8 +150,8 @@ def main():
     script_dir = Path(__file__).resolve().parent
 
     if args.env_yaml and args.planner_yaml:
-        env_file = str((_project_root / args.env_yaml).resolve())
-        planner_file = str((_project_root / args.planner_yaml).resolve())
+        env_file = args.env_yaml
+        planner_file = args.planner_yaml
     else:
         env_file = str(_project_root / f"example/{args.example}/{args.kinematics}/env.yaml")
         planner_file = str(_project_root / f"example/{args.example}/{args.kinematics}/planner.yaml")
@@ -165,7 +167,7 @@ def main():
     print("=" * 60)
 
     if args.display:
-        return run_display(planner_file, model_path, env_file, args.seed, args.max_steps)
+        return run_display(env_file, planner_file, model_path, args.seed, args.max_steps)
 
     planner_orig = neupan.init_from_yaml(planner_file)
     planner_orig.pan.dune_layer.model.to('cpu')
