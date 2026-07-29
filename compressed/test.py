@@ -5,7 +5,7 @@ import time
 import os
 import argparse
 import warnings
-warnings.filterwarnings('ignore', category=FutureWarning, module='torch')
+warnings.filterwarnings('ignore', category=FutureWarning)
 
 from neupan import neupan, configuration as neupan_config
 from neupan.configuration import np_to_tensor, tensor_dtype
@@ -216,8 +216,9 @@ def _run_nav_standalone(planner_orig, planner_comp, device, num_scenarios=50):
 
 def _run_nav_sim(planner_orig, planner_comp, env_yaml, max_steps):
     import irsim
+    results = {}
     for name, planner in [("Original", planner_orig), ("Compressed", planner_comp)]:
-        env = irsim.make(env_yaml, save_ani=False, display=False, full=False)
+        env = irsim.make(env_yaml, save_ani=False, display=False, no_display=True, full=False)
         planner.reset()
         arrived = collision = False
         for i in range(max_steps):
@@ -230,7 +231,9 @@ def _run_nav_sim(planner_orig, planner_comp, env_yaml, max_steps):
             env.step(action)
         env.end(0)
         status = "ARRIVED" if arrived else ("COLLISION" if collision else "MAX_STEPS")
+        results[name] = (status, i + 1)
         print(f"  {name}: {status} at step {i+1}")
+    print(f"\n  Summary: Original={results['Original'][0]}(step {results['Original'][1]}), Compressed={results['Compressed'][0]}(step {results['Compressed'][1]})")
 
 
 def main():
