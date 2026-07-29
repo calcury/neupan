@@ -40,9 +40,9 @@ class SuppressStdout:
             sys.stdout = self._original_stdout
 
 
-def run_episode(env_file, planner, max_steps=1000):
+def run_episode(env_file, planner, max_steps=1000, render=False):
     with SuppressStdout(enabled=True):
-        env = irsim.make(env_file, save_ani=False, full=False, display=False)
+        env = irsim.make(env_file, save_ani=False, full=False, display=render)
 
     success = False
     steps = 0
@@ -70,6 +70,9 @@ def run_episode(env_file, planner, max_steps=1000):
                 success = True
                 steps = i + 1
                 break
+
+            if render:
+                env.render()
 
             if env.done():
                 steps = i + 1
@@ -142,6 +145,7 @@ def main():
     parser.add_argument("-n", "--num_samples", type=int, default=100)
     parser.add_argument("-m", "--max_steps", type=int, default=1000)
     parser.add_argument("--display", action="store_true", help="可视化单次运行，对比原始和压缩网络的输出")
+    parser.add_argument("--render", action="store_true", help="批量测试时每轮显示可视化（每轮会打开一个窗口）")
     parser.add_argument("--seed", type=int, default=42, help="--display 时使用的随机种子")
     args = parser.parse_args()
 
@@ -195,7 +199,7 @@ def main():
         temp_env = shuffle_env_file(env_file, seed=seed)
 
         for key, planner in [("orig", planner_orig), ("comp", planner_comp)]:
-            success, nav_time, avg_speed, avg_infer = run_episode(str(temp_env), planner, args.max_steps)
+            success, nav_time, avg_speed, avg_infer = run_episode(str(temp_env), planner, args.max_steps, args.render)
             r = results[key]
             if success:
                 r["success"] += 1
