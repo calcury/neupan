@@ -15,10 +15,10 @@ from compressed.dataset import DataGenerator, AugmentedNRMPDataset
 
 def train(args):
     device = torch.device(args.device if args.device else ('cuda' if torch.cuda.is_available() else 'cpu'))
+    neupan_config.device = device
 
     print(f"Initializing planner from {args.planner_yaml}")
     planner = neupan.init_from_yaml(args.planner_yaml)
-    neupan_config.device = device
     nrmp = planner.pan.nrmp_layer
 
     neupan_config.time_print = False
