@@ -4,6 +4,7 @@ import sys
 import warnings
 import time
 from pathlib import Path
+import yaml
 
 # add project root to path (parent of script/)
 _project_root = Path(__file__).resolve().parent.parent
@@ -97,10 +98,7 @@ def run_display(env_file, planner_file, model_path, seed, max_steps):
     if not os.path.isabs(model_path):
         model_path = str(_project_root / model_path)
 
-    # use shuffle so obstacles vary, but override start/goal to stay in safe zone
     temp_env = shuffle_env_file(env_file, seed=seed)
-    start_pt = np.array([-1.0, 25.0, 0.0]).reshape(3, 1)
-    goal_pt = np.array([50.0, 25.0, 0.0]).reshape(3, 1)
 
     for name, is_comp in [("--- Original NRMP ---", False), ("--- Compressed NRMP ---", True)]:
         print(f"\n{name}")
@@ -180,6 +178,13 @@ def main():
         return run_display(env_file, planner_file, model_path, args.seed, args.max_steps)
 
     neupan_config.time_print = False
+
+    with open(env_file) as f:
+        env_cfg = yaml.safe_load(f)
+    robot_cfg = env_cfg.get("robot", [{}])[0]
+    start_pt = np.array(robot_cfg.get("state", [-1, 25, 0])[:3]).reshape(3, 1).astype(np.float64)
+    goal_pt = np.array(robot_cfg.get("goal", [50, 25, 0])[:3]).reshape(3, 1).astype(np.float64)
+
     results = {"orig": {"success": 0, "nav_times": [], "speeds": [], "infer_times": []},
                "comp": {"success": 0, "nav_times": [], "speeds": [], "infer_times": []}}
 
@@ -188,6 +193,8 @@ def main():
 
         for key, is_comp in [("orig", False), ("comp", True)]:
             planner = neupan.init_from_yaml(planner_file)
+            planner.set_reference_speed(4.0)
+            planner.update_initial_path_from_waypoints([start_pt, goal_pt])
             if is_comp:
                 nrmp_comp = NRMPCompressed(planner.pan.nrmp_layer)
                 if os.path.exists(model_path):
