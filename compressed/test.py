@@ -37,8 +37,8 @@ def compare_outputs(planner_yaml, model_path, num_samples=200, device=None):
     print("Test 1: Output Similarity Comparison")
     print(f"{'='*60}")
 
-    neupan_config.device = torch.device(device)
     planner = neupan.init_from_yaml(planner_yaml)
+    neupan_config.device = torch.device(device)
     nrmp = planner.pan.nrmp_layer
 
     nrmp_comp = NRMPCompressed(nrmp)
@@ -104,8 +104,8 @@ def benchmark_inference(planner_yaml, model_path, num_runs=500, device=None):
     print("Test 2: Inference Time Benchmark")
     print(f"{'='*60}")
 
-    neupan_config.device = torch.device(device)
     planner = neupan.init_from_yaml(planner_yaml)
+    neupan_config.device = torch.device(device)
     nrmp = planner.pan.nrmp_layer
 
     nrmp_comp = NRMPCompressed(nrmp)
@@ -150,9 +150,9 @@ def test_navigation(planner_yaml, model_path, env_yaml=None, max_steps=500, devi
     print("Test 3: Navigation Success Rate")
     print(f"{'='*60}")
 
-    neupan_config.device = torch.device(device)
     planner_orig = neupan.init_from_yaml(planner_yaml)
     planner_comp = neupan.init_from_yaml(planner_yaml)
+    neupan_config.device = torch.device(device)
 
     nrmp_comp = NRMPCompressed(planner_orig.pan.nrmp_layer)
     nrmp_comp.net.load_state_dict(torch.load(model_path, map_location=device))
