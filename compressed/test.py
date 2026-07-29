@@ -10,7 +10,7 @@ from neupan.configuration import np_to_tensor, tensor_dtype
 from compressed.nrmp_net import NRMPCompressed
 
 
-def _prepare_input(planner, state, obs_points):
+def _prepare_input(planner, state, obs_points, device='cpu'):
     goal = np.random.uniform(-15, 15, (3, 1)).astype(np.float32)
     goal[2, 0] = np.random.uniform(-np.pi, np.pi)
     planner.update_initial_path_from_goal(state, goal)
@@ -29,6 +29,18 @@ def _prepare_input(planner, state, obs_points):
     return nom_t[0], nom_t[1], nom_t[2], nom_t[3], mu, lam, sp
 
 
+def _to_device(nom_s, nom_u, ref_s, ref_us, mu, lam, sp, device):
+    d = torch.device(device)
+    nom_s = nom_s.to(d)
+    nom_u = nom_u.to(d)
+    ref_s = ref_s.to(d)
+    ref_us = ref_us.to(d)
+    mu = [m.to(d) for m in mu]
+    lam = [l.to(d) for l in lam]
+    sp = [s.to(d) for s in sp]
+    return nom_s, nom_u, ref_s, ref_us, mu, lam, sp
+
+
 @torch.no_grad()
 def compare_outputs(planner_yaml, model_path, num_samples=200, device=None):
     if device is None:
@@ -37,14 +49,12 @@ def compare_outputs(planner_yaml, model_path, num_samples=200, device=None):
     print("Test 1: Output Similarity Comparison")
     print(f"{'='*60}")
 
+    neupan_config.time_print = False
     planner = neupan.init_from_yaml(planner_yaml)
-    neupan_config.device = torch.device(device)
-    planner.pan.dune_layer.to(device)
-    planner.pan.dune_layer.model.to(device)
     nrmp = planner.pan.nrmp_layer
 
     nrmp_comp = NRMPCompressed(nrmp)
-    nrmp_comp.net.load_state_dict(torch.load(model_path, map_location=device))
+    nrmp_comp.net.load_state_dict(torch.load(model_path, map_location='cpu'))
     nrmp_comp = nrmp_comp.to(device)
     nrmp_comp.eval()
 
@@ -66,23 +76,27 @@ def compare_outputs(planner_yaml, model_path, num_samples=200, device=None):
         state, obs_points = gen.generate_scenario_with_blocks()
         nom_s, nom_u, ref_s, ref_us, mu, lam, sp = _prepare_input(planner, state, obs_points)
 
+        # Original NRMP (always CPU)
         t0 = time.perf_counter()
         gt_state, gt_vel, gt_dist = nrmp(nom_s, nom_u, ref_s, ref_us, mu, lam, sp)
         t_nrmp_list.append(time.perf_counter() - t0)
 
+        # Compressed NRMP (possibly GPU)
+        d = torch.device(device)
+        inputs_gpu = _to_device(nom_s, nom_u, ref_s, ref_us, mu, lam, sp, device)
         t0 = time.perf_counter()
-        pred_state, pred_vel, pred_dist = nrmp_comp(nom_s, nom_u, ref_s, ref_us, mu, lam, sp)
+        pred_state, pred_vel, pred_dist = nrmp_comp(*inputs_gpu)
         t_comp_list.append(time.perf_counter() - t0)
 
         gn_s = torch.norm(gt_state); gn_v = torch.norm(gt_vel)
-        state_errors.append(torch.norm(pred_state - gt_state).item() / gn_s.item() if gn_s > 0 else 0)
-        vel_errors.append(torch.norm(pred_vel - gt_vel).item() / gn_v.item() if gn_v > 0 else 0)
+        state_errors.append(torch.norm(pred_state.cpu() - gt_state).item() / gn_s.item() if gn_s > 0 else 0)
+        vel_errors.append(torch.norm(pred_vel.cpu() - gt_vel).item() / gn_v.item() if gn_v > 0 else 0)
         if gt_dist is not None and pred_dist is not None:
             gn_d = torch.norm(gt_dist)
-            dist_errors.append(torch.norm(pred_dist - gt_dist).item() / (gn_d.item() + 1e-8))
+            dist_errors.append(torch.norm(pred_dist.cpu() - gt_dist).item() / (gn_d.item() + 1e-8))
 
-        state_cos.append(nn.functional.cosine_similarity(pred_state.flatten().unsqueeze(0), gt_state.flatten().unsqueeze(0)).item())
-        vel_cos.append(nn.functional.cosine_similarity(pred_vel.flatten().unsqueeze(0), gt_vel.flatten().unsqueeze(0)).item())
+        state_cos.append(nn.functional.cosine_similarity(pred_state.flatten().unsqueeze(0).cpu(), gt_state.flatten().unsqueeze(0)).item())
+        vel_cos.append(nn.functional.cosine_similarity(pred_vel.flatten().unsqueeze(0).cpu(), gt_vel.flatten().unsqueeze(0)).item())
 
         if (i + 1) % 50 == 0:
             print(f"  Processed {i+1}/{num_samples}")
@@ -106,14 +120,12 @@ def benchmark_inference(planner_yaml, model_path, num_runs=500, device=None):
     print("Test 2: Inference Time Benchmark")
     print(f"{'='*60}")
 
+    neupan_config.time_print = False
     planner = neupan.init_from_yaml(planner_yaml)
-    neupan_config.device = torch.device(device)
-    planner.pan.dune_layer.to(device)
-    planner.pan.dune_layer.model.to(device)
     nrmp = planner.pan.nrmp_layer
 
     nrmp_comp = NRMPCompressed(nrmp)
-    nrmp_comp.net.load_state_dict(torch.load(model_path, map_location=device))
+    nrmp_comp.net.load_state_dict(torch.load(model_path, map_location='cpu'))
     nrmp_comp = nrmp_comp.to(device)
     nrmp_comp.eval()
 
@@ -125,10 +137,12 @@ def benchmark_inference(planner_yaml, model_path, num_runs=500, device=None):
 
     state, obs = gen.generate_scenario_with_blocks()
     nom_s, nom_u, ref_s, ref_us, mu, lam, sp = _prepare_input(planner, state, obs)
+    inputs_gpu = _to_device(nom_s, nom_u, ref_s, ref_us, mu, lam, sp, device)
 
+    # warmup
     for _ in range(10):
         nrmp(nom_s, nom_u, ref_s, ref_us, mu, lam, sp)
-        nrmp_comp(nom_s, nom_u, ref_s, ref_us, mu, lam, sp)
+        nrmp_comp(*inputs_gpu)
 
     t_nrmp, t_comp = [], []
     for _ in range(num_runs):
@@ -136,7 +150,7 @@ def benchmark_inference(planner_yaml, model_path, num_runs=500, device=None):
         nrmp(nom_s, nom_u, ref_s, ref_us, mu, lam, sp)
         t_nrmp.append(time.perf_counter() - t0)
         t0 = time.perf_counter()
-        nrmp_comp(nom_s, nom_u, ref_s, ref_us, mu, lam, sp)
+        nrmp_comp(*inputs_gpu)
         t_comp.append(time.perf_counter() - t0)
 
     mn = np.mean(t_nrmp) * 1000; sn = np.std(t_nrmp) * 1000
@@ -154,14 +168,12 @@ def test_navigation(planner_yaml, model_path, env_yaml=None, max_steps=500, devi
     print("Test 3: Navigation Success Rate")
     print(f"{'='*60}")
 
+    neupan_config.time_print = False
     planner_orig = neupan.init_from_yaml(planner_yaml)
     planner_comp = neupan.init_from_yaml(planner_yaml)
-    neupan_config.device = torch.device(device)
-    planner_orig.pan.dune_layer.to(device)
-    planner_orig.pan.dune_layer.model.to(device)
 
     nrmp_comp = NRMPCompressed(planner_orig.pan.nrmp_layer)
-    nrmp_comp.net.load_state_dict(torch.load(model_path, map_location=device))
+    nrmp_comp.net.load_state_dict(torch.load(model_path, map_location='cpu'))
     nrmp_comp = nrmp_comp.to(device)
     nrmp_comp.eval()
     planner_comp.pan.nrmp_layer = nrmp_comp
