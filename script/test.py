@@ -5,6 +5,11 @@ import warnings
 import time
 from pathlib import Path
 
+# add project root to path (parent of script/)
+_project_root = str(Path(__file__).resolve().parent.parent)
+if _project_root not in sys.path:
+    sys.path.insert(0, _project_root)
+
 warnings.filterwarnings("ignore", category=UserWarning)
 os.environ["TORCH_CPP_LOG_LEVEL"] = "ERROR"
 
@@ -15,7 +20,6 @@ from neupan import neupan, configuration as neupan_config
 from compressed.nrmp_net import NRMPCompressed
 import irsim
 
-sys.path.insert(0, str(Path(__file__).parent))
 from shuffle import shuffle_env_file
 
 
@@ -91,9 +95,10 @@ def main():
 
     neupan_config.time_print = False
 
-    base_env_file = str(Path(__file__).parent / args.env_yaml)
-    planner_file = str(Path(__file__).parent / args.planner_yaml)
-    model_path = str(Path(__file__).parent / args.model_path)
+    script_dir = Path(__file__).resolve().parent
+    base_env_file = str(script_dir / args.env_yaml)
+    planner_file = str(script_dir / args.planner_yaml)
+    model_path = str(_project_root / args.model_path)
 
     print("=" * 60)
     print("Compressed NRMP vs Original NRMP 回测对比")
