@@ -84,6 +84,47 @@ def run_episode(env_file, planner, max_steps=1000):
     return success, nav_time, avg_speed, avg_inference
 
 
+def run_display(planner_file, model_path, env_yaml, seed, max_steps):
+    script_dir = Path(__file__).resolve().parent
+    env_file = str((script_dir / env_yaml).resolve())
+    planner_file = str((script_dir / planner_file).resolve())
+    model_path = str((_project_root / model_path).resolve())
+
+    temp_env = shuffle_env_file(env_file, seed=seed)
+
+    for name, is_comp in [("--- Original NRMP ---", False), ("--- Compressed NRMP ---", True)]:
+        print(f"\n{name}")
+        planner = neupan.init_from_yaml(planner_file)
+        neupan_config.time_print = False
+        if is_comp:
+            nrmp_comp = NRMPCompressed(planner.pan.nrmp_layer)
+            if os.path.exists(model_path):
+                nrmp_comp.net.load_state_dict(torch.load(model_path, map_location='cpu'))
+            nrmp_comp.eval()
+            planner.pan.nrmp_layer = nrmp_comp
+
+        env = irsim.make(str(temp_env), save_ani=False, full=False, display=True)
+        planner.reset()
+        arrived = collision = False
+        for i in range(max_steps):
+            robot_state = env.get_robot_state()
+            lidar_scan = env.get_lidar_scan()
+            points = planner.scan_to_point(robot_state, lidar_scan)
+            action, info = planner(robot_state, points, None)
+            if is_comp:
+                print(f"  step {i}: vel=[{action[0,0]:.3f}, {action[1,0]:.3f}]  arrive={info.get('arrive',False)} stop={info.get('stop',False)}")
+            if info.get("arrive", False): arrived = True; break
+            if info.get("stop", False): collision = True; break
+            env.step(action)
+            env.render()
+        env.end(0)
+        status = "ARRIVED" if arrived else ("STOP/COLLISION" if collision else "MAX_STEPS")
+        print(f"  Result: {status} at step {i+1}")
+
+    if os.path.exists(temp_env):
+        os.remove(temp_env)
+
+
 def main():
     parser = argparse.ArgumentParser(description="Compressed NRMP vs Original NRMP 回测对比")
     parser.add_argument("--env_yaml", type=str, default="../example/corridor/diff/env.yaml")
@@ -91,6 +132,8 @@ def main():
     parser.add_argument("--model_path", type=str, default="compressed/models/best_model.pth")
     parser.add_argument("-n", "--num_samples", type=int, default=100)
     parser.add_argument("-m", "--max_steps", type=int, default=1000)
+    parser.add_argument("--display", action="store_true", help="可视化单次运行，对比原始和压缩网络的输出")
+    parser.add_argument("--seed", type=int, default=42, help="--display 时使用的随机种子")
     args = parser.parse_args()
 
     neupan_config.time_print = False
@@ -106,6 +149,9 @@ def main():
     print(f"Model:   {model_path}")
     print(f"Trials:  {args.num_samples}")
     print("=" * 60)
+
+    if args.display:
+        return run_display(planner_file, model_path, args.env_yaml, args.seed, args.max_steps)
 
     planner_orig = neupan.init_from_yaml(planner_file)
     planner_orig.pan.dune_layer.model.to('cpu')
