@@ -41,44 +41,46 @@ class SuppressStdout:
 
 
 def run_episode(env_file, planner, max_steps=1000, render=False):
-    with SuppressStdout(enabled=True):
-        env = irsim.make(env_file, save_ani=False, full=False, display=render)
+    env = irsim.make(env_file, save_ani=False, full=False, display=render)
 
     success = False
     steps = 0
     velocities = []
     inference_times = []
 
-    with SuppressStdout(enabled=True):
-        for i in range(max_steps):
-            robot_state = env.get_robot_state()
-            lidar_scan = env.get_lidar_scan()
+    for i in range(max_steps):
+        robot_state = env.get_robot_state()
+        lidar_scan = env.get_lidar_scan()
 
-            if isinstance(robot_state, np.ndarray):
-                vel = np.linalg.norm(robot_state[3:5]) if robot_state.shape[0] > 3 else 0.0
-            else:
-                vel = getattr(robot_state, 'v', 0.0)
-            velocities.append(vel)
+        if isinstance(robot_state, np.ndarray):
+            vel = np.linalg.norm(robot_state[3:5]) if robot_state.shape[0] > 3 else 0.0
+        else:
+            vel = getattr(robot_state, 'v', 0.0)
+        velocities.append(vel)
 
-            points = planner.scan_to_point(robot_state, lidar_scan)
+        points = planner.scan_to_point(robot_state, lidar_scan)
 
-            t0 = time.perf_counter()
-            action, info = planner(robot_state, points, None)
-            inference_times.append(time.perf_counter() - t0)
+        t0 = time.perf_counter()
+        action, info = planner(robot_state, points, None)
+        inference_times.append(time.perf_counter() - t0)
 
-            if info.get("arrive", False):
-                success = True
-                steps = i + 1
-                break
+        if info.get("arrive", False):
+            success = True
+            steps = i + 1
+            break
 
-            if render:
-                env.render()
+        if env.done():
+            steps = i + 1
+            break
 
-            if env.done():
-                steps = i + 1
-                break
+        env.step(action)
 
-            env.step(action)
+        if render:
+            env.draw_points(planner.dune_points, s=25, c="g", refresh=True)
+            env.draw_points(planner.nrmp_points, s=13, c="r", refresh=True)
+            env.draw_trajectory(planner.opt_trajectory, "r", refresh=True)
+            env.draw_trajectory(planner.ref_trajectory, "b", refresh=True)
+            env.render()
 
     nav_time = steps * 0.1 if success else 0.0
     avg_speed = np.mean(velocities) if velocities else 0.0
