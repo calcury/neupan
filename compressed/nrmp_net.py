@@ -58,16 +58,32 @@ class NRMPNet(nn.Module):
     def forward(self, x):
         return self.net(x)
 
+    def _pad_to_max_num(self, t, dim1, max_num, device):
+        n = t.shape[1]
+        if n >= max_num:
+            return t[:, :max_num]
+        pad = t[:, :1].repeat(1, max_num - n)
+        return torch.cat([t, pad], dim=1)
+
     def flatten_inputs(self, nom_s, nom_u, ref_s, ref_us, mu_list, lam_list, point_list):
         tensors = [
             nom_s.flatten(), nom_u.flatten(), ref_s.flatten(), ref_us.flatten(),
         ]
         for t in range(self.T + 1):
-            tensors.append(mu_list[t].flatten() if t < len(mu_list) else torch.zeros(self.edge_dim, self.max_num, dtype=tensor_dtype, device=nom_s.device).flatten())
+            if t < len(mu_list):
+                tensors.append(self._pad_to_max_num(mu_list[t], self.edge_dim, self.max_num, nom_s.device).flatten())
+            else:
+                tensors.append(torch.zeros(self.edge_dim, self.max_num, dtype=tensor_dtype, device=nom_s.device).flatten())
         for t in range(self.T + 1):
-            tensors.append(lam_list[t].flatten() if t < len(lam_list) else torch.zeros(self.point_dim, self.max_num, dtype=tensor_dtype, device=nom_s.device).flatten())
+            if t < len(lam_list):
+                tensors.append(self._pad_to_max_num(lam_list[t], self.point_dim, self.max_num, nom_s.device).flatten())
+            else:
+                tensors.append(torch.zeros(self.point_dim, self.max_num, dtype=tensor_dtype, device=nom_s.device).flatten())
         for t in range(self.T + 1):
-            tensors.append(point_list[t].flatten() if t < len(point_list) else torch.zeros(self.point_dim, self.max_num, dtype=tensor_dtype, device=nom_s.device).flatten())
+            if t < len(point_list):
+                tensors.append(self._pad_to_max_num(point_list[t], self.point_dim, self.max_num, nom_s.device).flatten())
+            else:
+                tensors.append(torch.zeros(self.point_dim, self.max_num, dtype=tensor_dtype, device=nom_s.device).flatten())
         return torch.cat(tensors)
 
     def unflatten_outputs(self, x):
@@ -115,6 +131,7 @@ class NRMPCompressed(nn.Module):
         if point_list:
             self.obstacle_points = point_list[0][:, :self.max_num]
 
+        # truncate to nrmp_max_num to match training input dimension
         inp = self.net.flatten_inputs(nom_s, nom_u, ref_s, ref_us, mu_list or [], lam_list or [], point_list or [])
         out = self.net(inp)
         opt_state, opt_vel, opt_distance = self.net.unflatten_outputs(out)

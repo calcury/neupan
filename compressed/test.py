@@ -4,6 +4,8 @@ import numpy as np
 import time
 import os
 import argparse
+import warnings
+warnings.filterwarnings('ignore', category=FutureWarning, module='torch')
 
 from neupan import neupan, configuration as neupan_config
 from neupan.configuration import np_to_tensor, tensor_dtype
