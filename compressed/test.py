@@ -30,7 +30,9 @@ def _prepare_input(planner, state, obs_points):
 
 
 @torch.no_grad()
-def compare_outputs(planner_yaml, model_path, num_samples=200, device='cpu'):
+def compare_outputs(planner_yaml, model_path, num_samples=200, device=None):
+    if device is None:
+        device = 'cuda' if torch.cuda.is_available() else 'cpu'
     print(f"\n{'='*60}")
     print("Test 1: Output Similarity Comparison")
     print(f"{'='*60}")
@@ -95,7 +97,9 @@ def compare_outputs(planner_yaml, model_path, num_samples=200, device='cpu'):
 
 
 @torch.no_grad()
-def benchmark_inference(planner_yaml, model_path, num_runs=500, device='cpu'):
+def benchmark_inference(planner_yaml, model_path, num_runs=500, device=None):
+    if device is None:
+        device = 'cuda' if torch.cuda.is_available() else 'cpu'
     print(f"\n{'='*60}")
     print("Test 2: Inference Time Benchmark")
     print(f"{'='*60}")
@@ -139,7 +143,9 @@ def benchmark_inference(planner_yaml, model_path, num_runs=500, device='cpu'):
 
 
 @torch.no_grad()
-def test_navigation(planner_yaml, model_path, env_yaml=None, max_steps=500, device='cpu'):
+def test_navigation(planner_yaml, model_path, env_yaml=None, max_steps=500, device=None):
+    if device is None:
+        device = 'cuda' if torch.cuda.is_available() else 'cpu'
     print(f"\n{'='*60}")
     print("Test 3: Navigation Success Rate")
     print(f"{'='*60}")
@@ -218,7 +224,7 @@ def main():
     parser.add_argument('--planner_yaml', default='example/corridor/diff/planner.yaml')
     parser.add_argument('--model_path', default='compressed/models/best_model.pth')
     parser.add_argument('--env_yaml', default=None)
-    parser.add_argument('--device', default='cpu')
+    parser.add_argument('--device', default=None)
     parser.add_argument('--num_samples', type=int, default=200)
     parser.add_argument('--benchmark_runs', type=int, default=500)
     parser.add_argument('--nav_scenarios', type=int, default=50)

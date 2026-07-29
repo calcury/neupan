@@ -14,7 +14,7 @@ from compressed.dataset import DataGenerator, AugmentedNRMPDataset
 
 
 def train(args):
-    device = torch.device(args.device)
+    device = torch.device(args.device if args.device else ('cuda' if torch.cuda.is_available() else 'cpu'))
     neupan_config.device = device
 
     print(f"Initializing planner from {args.planner_yaml}")
@@ -118,7 +118,7 @@ def train(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--planner_yaml', type=str, default='example/corridor/diff/planner.yaml')
-    parser.add_argument('--device', type=str, default='cpu')
+    parser.add_argument('--device', type=str, default=None)
     parser.add_argument('--num_samples', type=int, default=5000)
     parser.add_argument('--cache_path', type=str, default='compressed/dataset_cache.pt')
     parser.add_argument('--batch_size', type=int, default=256)
