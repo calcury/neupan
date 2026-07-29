@@ -132,8 +132,10 @@ def run_display(planner_file, model_path, env_yaml, seed, max_steps):
 
 def main():
     parser = argparse.ArgumentParser(description="Compressed NRMP vs Original NRMP 回测对比")
-    parser.add_argument("--env_yaml", type=str, default="../example/convex_obs/diff/env.yaml")
-    parser.add_argument("--planner_yaml", type=str, default="../example/convex_obs/diff/planner.yaml")
+    parser.add_argument("-e", "--example", type=str, default="convex_obs", choices=["convex_obs", "non_obs", "dyna_obs", "corridor"])
+    parser.add_argument("-d", "--kinematics", type=str, default="diff", choices=["diff", "acker", "omni"])
+    parser.add_argument("--env_yaml", type=str, default=None)
+    parser.add_argument("--planner_yaml", type=str, default=None)
     parser.add_argument("--model_path", type=str, default="compressed/models/best_model.pth")
     parser.add_argument("-n", "--num_samples", type=int, default=100)
     parser.add_argument("-m", "--max_steps", type=int, default=1000)
@@ -144,31 +146,32 @@ def main():
     neupan_config.time_print = False
 
     script_dir = Path(__file__).resolve().parent
-    base_env_file = str(script_dir / args.env_yaml)
-    planner_file = str(script_dir / args.planner_yaml)
+
+    if args.env_yaml and args.planner_yaml:
+        env_file = str(script_dir / args.env_yaml)
+        planner_file = str(script_dir / args.planner_yaml)
+    else:
+        env_file = str(_project_root / f"example/{args.example}/{args.kinematics}/env.yaml")
+        planner_file = str(_project_root / f"example/{args.example}/{args.kinematics}/planner.yaml")
+
     model_path = str((_project_root / args.model_path).resolve())
 
     print("=" * 60)
     print("Compressed NRMP vs Original NRMP 回测对比")
+    print(f"Env:     {env_file}")
     print(f"Planner: {planner_file}")
     print(f"Model:   {model_path}")
     print(f"Trials:  {args.num_samples}")
     print("=" * 60)
 
     if args.display:
-        return run_display(planner_file, model_path, args.env_yaml, args.seed, args.max_steps)
+        return run_display(planner_file, model_path, env_file, args.seed, args.max_steps)
 
     planner_orig = neupan.init_from_yaml(planner_file)
-    planner_orig.set_reference_speed(4.0)
-    start_pt = np.array([-1.0, 25.0, 0.0]).reshape(3, 1)
-    goal_pt = np.array([50.0, 25.0, 0.0]).reshape(3, 1)
-    planner_orig.update_initial_path_from_waypoints([start_pt, goal_pt])
     planner_orig.pan.dune_layer.model.to('cpu')
     neupan_config.time_print = False
 
     planner_comp = neupan.init_from_yaml(planner_file)
-    planner_comp.set_reference_speed(4.0)
-    planner_comp.update_initial_path_from_waypoints([start_pt, goal_pt])
     nrmp_comp = NRMPCompressed(planner_comp.pan.nrmp_layer)
     if os.path.exists(model_path):
         nrmp_comp.net.load_state_dict(torch.load(model_path, map_location='cpu'))
