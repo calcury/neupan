@@ -177,28 +177,22 @@ def main():
     if args.display:
         return run_display(env_file, planner_file, model_path, args.seed, args.max_steps)
 
-    planner_orig = neupan.init_from_yaml(planner_file)
-    planner_orig.pan.dune_layer.model.to('cpu')
     neupan_config.time_print = False
-
-    planner_comp = neupan.init_from_yaml(planner_file)
-    nrmp_comp = NRMPCompressed(planner_comp.pan.nrmp_layer)
-    if os.path.exists(model_path):
-        nrmp_comp.net.load_state_dict(torch.load(model_path, map_location='cpu'))
-    else:
-        print(f"Warning: model not found at {model_path}, using untrained network")
-    nrmp_comp.eval()
-    planner_comp.pan.nrmp_layer = nrmp_comp
-    planner_comp.pan.dune_layer.model.to('cpu')
-    neupan_config.time_print = False
-
     results = {"orig": {"success": 0, "nav_times": [], "speeds": [], "infer_times": []},
                "comp": {"success": 0, "nav_times": [], "speeds": [], "infer_times": []}}
 
     for seed in tqdm(range(args.num_samples), desc="Benchmark", unit="ep"):
         temp_env = shuffle_env_file(env_file, seed=seed)
 
-        for key, planner in [("orig", planner_orig), ("comp", planner_comp)]:
+        for key, is_comp in [("orig", False), ("comp", True)]:
+            planner = neupan.init_from_yaml(planner_file)
+            if is_comp:
+                nrmp_comp = NRMPCompressed(planner.pan.nrmp_layer)
+                if os.path.exists(model_path):
+                    nrmp_comp.net.load_state_dict(torch.load(model_path, map_location='cpu'))
+                nrmp_comp.eval()
+                planner.pan.nrmp_layer = nrmp_comp
+
             success, nav_time, avg_speed, avg_infer = run_episode(str(temp_env), planner, args.max_steps, args.render)
             r = results[key]
             if success:
