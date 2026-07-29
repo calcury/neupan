@@ -42,7 +42,7 @@ class SuppressStdout:
 
 def run_episode(env_file, planner, max_steps=1000):
     with SuppressStdout(enabled=True):
-        env = irsim.make(env_file, save_ani=False, full=False, display=False, no_display=True)
+        env = irsim.make(env_file, save_ani=False, full=False, display=False)
 
     success = False
     steps = 0
@@ -88,7 +88,7 @@ def main():
     parser = argparse.ArgumentParser(description="Compressed NRMP vs Original NRMP 回测对比")
     parser.add_argument("--env_yaml", type=str, default="test/env.yaml")
     parser.add_argument("--planner_yaml", type=str, default="test/planner.yaml")
-    parser.add_argument("--model_path", type=str, default="../compressed/models/best_model.pth")
+    parser.add_argument("--model_path", type=str, default="compressed/models/best_model.pth")
     parser.add_argument("-n", "--num_samples", type=int, default=100)
     parser.add_argument("-m", "--max_steps", type=int, default=1000)
     args = parser.parse_args()
