@@ -23,8 +23,10 @@ class NRMPDataset(Dataset):
 
 
 class DataGenerator:
-    def __init__(self, planner_yaml: str = None, device='cpu'):
+    def __init__(self, planner_yaml: str = None, device=None):
         if planner_yaml is not None:
+            if device is None:
+                device = 'cuda' if torch.cuda.is_available() else 'cpu'
             neupan_config.device = torch.device(device)
             self.planner = neupan.init_from_yaml(planner_yaml)
             neupan_config.time_print = False

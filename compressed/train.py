@@ -30,7 +30,7 @@ def train(args):
 
     print(f"T={T}, max_num={max_num}, edge_dim={edge_dim}")
 
-    generator = DataGenerator(args.planner_yaml, device=args.device)
+    generator = DataGenerator(args.planner_yaml, device=str(device))
     print(f"Generating {args.num_samples} training samples...")
     dataset = generator.generate_dataset(args.num_samples, save_path=args.cache_path)
 
