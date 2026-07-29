@@ -192,7 +192,7 @@ def main():
                "comp": {"success": 0, "nav_times": [], "speeds": [], "infer_times": []}}
 
     for seed in tqdm(range(args.num_samples), desc="Benchmark", unit="ep"):
-        temp_env = shuffle_env_file(base_env_file, seed=seed)
+        temp_env = shuffle_env_file(env_file, seed=seed)
 
         for key, planner in [("orig", planner_orig), ("comp", planner_comp)]:
             success, nav_time, avg_speed, avg_infer = run_episode(str(temp_env), planner, args.max_steps)
