@@ -148,8 +148,8 @@ def main():
     script_dir = Path(__file__).resolve().parent
 
     if args.env_yaml and args.planner_yaml:
-        env_file = str(script_dir / args.env_yaml)
-        planner_file = str(script_dir / args.planner_yaml)
+        env_file = str((_project_root / args.env_yaml).resolve())
+        planner_file = str((_project_root / args.planner_yaml).resolve())
     else:
         env_file = str(_project_root / f"example/{args.example}/{args.kinematics}/env.yaml")
         planner_file = str(_project_root / f"example/{args.example}/{args.kinematics}/planner.yaml")
