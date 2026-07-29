@@ -162,3 +162,6 @@ uv.lock
 .vscode/settings.json
 
 .vscode/
+
+*.pt
+*.pth
