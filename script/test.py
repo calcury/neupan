@@ -86,8 +86,8 @@ def run_episode(env_file, planner, max_steps=1000):
 
 def main():
     parser = argparse.ArgumentParser(description="Compressed NRMP vs Original NRMP 回测对比")
-    parser.add_argument("--env_yaml", type=str, default="test/env.yaml")
-    parser.add_argument("--planner_yaml", type=str, default="test/planner.yaml")
+    parser.add_argument("--env_yaml", type=str, default="../example/corridor/diff/env.yaml")
+    parser.add_argument("--planner_yaml", type=str, default="../example/corridor/diff/planner.yaml")
     parser.add_argument("--model_path", type=str, default="compressed/models/best_model.pth")
     parser.add_argument("-n", "--num_samples", type=int, default=100)
     parser.add_argument("-m", "--max_steps", type=int, default=1000)
@@ -100,25 +100,18 @@ def main():
     planner_file = str(script_dir / args.planner_yaml)
     model_path = str((_project_root / args.model_path).resolve())
 
-    # auto-detect DUNE checkpoint
-    dune_ckpt = str(_project_root / 'example/model/diff_robot_default/model_5000.pth')
-    if not os.path.exists(dune_ckpt):
-        dune_ckpt = None
-
     print("=" * 60)
     print("Compressed NRMP vs Original NRMP 回测对比")
     print(f"Planner: {planner_file}")
     print(f"Model:   {model_path}")
     print(f"Trials:  {args.num_samples}")
-    if dune_ckpt:
-        print(f"DUNE checkpoint: {dune_ckpt}")
     print("=" * 60)
 
-    planner_orig = neupan.init_from_yaml(planner_file, pan={'dune_checkpoint': dune_ckpt})
+    planner_orig = neupan.init_from_yaml(planner_file)
     planner_orig.pan.dune_layer.model.to('cpu')
     neupan_config.time_print = False
 
-    planner_comp = neupan.init_from_yaml(planner_file, pan={'dune_checkpoint': dune_ckpt})
+    planner_comp = neupan.init_from_yaml(planner_file)
     nrmp_comp = NRMPCompressed(planner_comp.pan.nrmp_layer)
     if os.path.exists(model_path):
         nrmp_comp.net.load_state_dict(torch.load(model_path, map_location='cpu'))
