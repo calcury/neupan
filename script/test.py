@@ -155,6 +155,10 @@ def main():
     else:
         env_file = str(_project_root / f"example/{args.example}/{args.kinematics}/env.yaml")
         planner_file = str(_project_root / f"example/{args.example}/{args.kinematics}/planner.yaml")
+        if not os.path.exists(env_file):
+            print(f"Error: env file not found at {env_file}")
+            print("Use --env_yaml and --planner_yaml to specify custom paths.")
+            sys.exit(1)
 
     model_path = str((_project_root / args.model_path).resolve())
 
