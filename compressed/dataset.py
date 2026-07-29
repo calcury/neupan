@@ -31,11 +31,11 @@ class DataGenerator:
             self.planner = neupan.init_from_yaml(planner_yaml)
             neupan_config.time_print = False
             self.edge_dim = self.planner.pan.nrmp_layer.G.shape[0]
-        self.nrmp = self.planner.pan.nrmp_layer
-        self.dune = self.planner.pan.dune_layer
-        self.robot = self.planner.robot
-        self.T = self.planner.T
-        self.ref_speed = self.planner.ref_speed
+            self.nrmp = self.planner.pan.nrmp_layer
+            self.dune = self.planner.pan.dune_layer
+            self.robot = self.planner.robot
+            self.T = self.planner.T
+            self.ref_speed = self.planner.ref_speed
 
     def generate_random_scenario(self):
         state = np.random.uniform(-15, 15, size=(3, 1)).astype(np.float32)
